@@ -54,7 +54,7 @@
     {
       "parameters": {
         "method": "PUT",
-        "url": "=https://proxmox2.thehomelabguy.in/api2/json/nodes/proxmox2/lxc/{{ $('Code in JavaScript').item.json.vmid }}/config",
+        "url": "=https://[proxmox IP or domain]/api2/json/nodes/[node name]/lxc/{{ $('Code in JavaScript').item.json.vmid }}/config",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
@@ -93,7 +93,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "=https://proxmox2.thehomelabguy.in/api2/json/nodes/proxmox2/lxc/{{ $('Code in JavaScript').item.json.vmid }}/status/start",
+        "url": "=https://[proxmox domain or IP]/api2/json/nodes/[node name]/lxc/{{ $('Code in JavaScript').item.json.vmid }}/status/start",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "options": {}
@@ -130,7 +130,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://proxmox2.thehomelabguy.in/api2/json/nodes/proxmox2/lxc/4014/clone",
+        "url": "https://[proxmox doamin or IP]/api2/json/nodes/[node name]/lxc/4014/clone",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
