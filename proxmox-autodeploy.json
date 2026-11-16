@@ -1,0 +1,410 @@
+{
+  "name": "proxmox-deploy",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -128,
+        -320
+      ],
+      "id": "60c6c068-18a1-4bb7-8006-f88b1c26e34a",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "formTitle": "Test-Clone",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "New ID",
+              "fieldType": "number"
+            },
+            {
+              "fieldLabel": "Hostname"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        1136,
+        -432
+      ],
+      "id": "38a0b704-1c16-4270-bd28-d615699ba572",
+      "name": "On form submission",
+      "webhookId": "27d46862-83e3-4eb2-a04d-f4fbb86c2b35"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1024,
+        80
+      ],
+      "id": "ee11f95a-c7cd-4921-a1f8-c1805fb3f3d7",
+      "name": "HTTP Request2"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://proxmox2.thehomelabguy.in/api2/json/nodes/proxmox2/lxc/{{ $('Code in JavaScript').item.json.vmid }}/config",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"memory\": {{ $('Code in JavaScript').item.json.ramMb }},\n  \"net0\": \"name=eth0,bridge=vmbr1,ip={{ $('Code in JavaScript').item.json.lxcLanIp }}/24,gw=192.168.5.1\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        768,
+        -320
+      ],
+      "id": "3a34d5f3-ab2b-4f63-a8ab-06d5d791be14",
+      "name": "Configured",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "KY6iRYovtqWceoXx",
+          "name": "peoxmoxapi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body || $input.first().json;\n\n// Generate a random Client ID between 110 and 250 (maps to CT ID, WireGuard IP, and LAN IP)\nconst clientId = Math.floor(Math.random() * (250 - 110 + 1)) + 110;\nconst publicPort = 20000 + clientId; // e.g., 20145\nconst wgIp = `10.99.0.${clientId}`;\nconst lxcLanIp = `192.168.5.${clientId}`; // Free range on your LAN so n8n can SSH in\n\nconst chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';\nlet dbPass = '';\nfor (let i = 0; i < 16; i++) {\n  dbPass += chars.charAt(Math.floor(Math.random() * chars.length));\n}\n\nconst engine = (body.engine || 'postgres').toLowerCase();\nconst internalPort = engine === 'mysql' ? 3306 : (engine === 'redis' ? 6379 : 5432);\n\nreturn [{\n  json: {\n    email: body.email,\n    engine,\n    ramMb: Number(body.ram_mb || 512),\n    vmid: clientId,\n    publicPort,\n    internalPort,\n    wgIp,\n    lxcLanIp,\n    dbUser: `user_${clientId}`,\n    dbPass,\n    dbName: 'sandbox'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        96,
+        -320
+      ],
+      "id": "f38979f3-be4f-47ac-a417-9a4144b4af7d",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://proxmox2.thehomelabguy.in/api2/json/nodes/proxmox2/lxc/{{ $('Code in JavaScript').item.json.vmid }}/status/start",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -128,
+        -80
+      ],
+      "id": "6c0e3a1a-e0e6-4d25-98c7-7442798aa8c4",
+      "name": "start_lxc",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "KY6iRYovtqWceoXx",
+          "name": "peoxmoxapi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 10
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        960,
+        -320
+      ],
+      "id": "fa08551d-a647-4b23-b4f5-80d999954e11",
+      "name": "Wait",
+      "webhookId": "27750f83-d29c-4ab8-a433-3e54548e57e0"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://proxmox2.thehomelabguy.in/api2/json/nodes/proxmox2/lxc/4014/clone",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"newid\": {{ $json.vmid }},\n  \"hostname\": \"client-db-{{ $json.vmid }}\",\n  \"full\": 1\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        304,
+        -320
+      ],
+      "id": "b9cf7aca-2ffb-4a41-bb5e-5dc40df1c49e",
+      "name": "cloneing",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "KY6iRYovtqWceoXx",
+          "name": "peoxmoxapi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 20
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        528,
+        -320
+      ],
+      "id": "20566b7a-ac17-4d8f-b96c-06ed4329ed34",
+      "name": "Wait1",
+      "webhookId": "b6892ac2-f668-4445-87cf-c859e736d2d0"
+    },
+    {
+      "parameters": {
+        "authentication": "privateKey",
+        "command": "=set -e\nWG_IP=\"{{ $('Code in JavaScript').item.json.wgIp }}\"\nENGINE=\"{{ $('Code in JavaScript').item.json.engine }}\"\nDB_USER=\"{{ $('Code in JavaScript').item.json.dbUser }}\"\nDB_PASS=\"{{ $('Code in JavaScript').item.json.dbPass }}\"\nDB_NAME=\"{{ $('Code in JavaScript').item.json.dbName }}\"\n\n# 1. Generate WireGuard keys and force restart tunnel\numask 077\nsystemctl stop wg-quick@wg0 2>/dev/null || true\nwg genkey | tee /etc/wireguard/private.key | wg pubkey > /etc/wireguard/public.key\ncat <<EOF > /etc/wireguard/wg0.conf\n[Interface]\nAddress = ${WG_IP}/24\nPrivateKey = $(cat /etc/wireguard/private.key)\n\n[Peer]\nPublicKey = 63+Phy6TqSfbBGtUeiMTJExqWIm+ZnbJYqgRq4Gr6nc=\nEndpoint = 89.144.8.129:51820\nAllowedIPs = 10.99.0.0/24\nPersistentKeepalive = 25\nEOF\nsystemctl enable wg-quick@wg0\nsystemctl restart wg-quick@wg0\n\n# 2. Configure and FORCE RESTART the chosen database engine bound to WG_IP\nif [ \"$ENGINE\" = \"postgres\" ]; then\n  PG_CONF=$(find /etc/postgresql -name \"postgresql.conf\")\n  PG_HBA=$(find /etc/postgresql -name \"pg_hba.conf\")\n  sed -i \"s/^#*listen_addresses.*/listen_addresses = '${WG_IP}'/\" \"$PG_CONF\"\n  grep -q \"10.99.0.0/24\" \"$PG_HBA\" || echo \"host all all 10.99.0.0/24 scram-sha-256\" >> \"$PG_HBA\"\n  systemctl enable postgresql\n  systemctl restart postgresql\n  su - postgres -c \"psql -tc \\\"SELECT 1 FROM pg_roles WHERE rolname='${DB_USER}'\\\" | grep -q 1 || psql -c \\\"CREATE USER ${DB_USER} WITH PASSWORD '${DB_PASS}';\\\"\"\n  su - postgres -c \"psql -tc \\\"SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'\\\" | grep -q 1 || psql -c \\\"CREATE DATABASE ${DB_NAME} OWNER ${DB_USER};\\\"\"\nelif [ \"$ENGINE\" = \"mysql\" ]; then\n  sed -i \"s/^#*bind-address.*/bind-address = ${WG_IP}/\" /etc/mysql/mariadb.conf.d/50-server.cnf\n  systemctl enable mariadb\n  systemctl restart mariadb\n  mysql -e \"CREATE DATABASE IF NOT EXISTS ${DB_NAME};\"\n  mysql -e \"CREATE USER IF NOT EXISTS '${DB_USER}'@'%' IDENTIFIED BY '${DB_PASS}';\"\n  mysql -e \"GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'%'; FLUSH PRIVILEGES;\"\nelif [ \"$ENGINE\" = \"redis\" ]; then\n  sed -i \"s/^bind .*/bind ${WG_IP}/\" /etc/redis/redis.conf\n  sed -i \"s/^#* *requirepass .*/requirepass ${DB_PASS}/\" /etc/redis/redis.conf\n  systemctl enable redis-server\n  systemctl restart redis-server\nfi\n\ncat /etc/wireguard/public.key"
+      },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        272,
+        -80
+      ],
+      "id": "9e2ed2bc-35bd-48a2-a8cd-a54d0bcbc3fa",
+      "name": "setup_wg",
+      "credentials": {
+        "sshPrivateKey": {
+          "id": "cDHpF7oHDPtwlOkK",
+          "name": "client_ssh"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 10
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        96,
+        -80
+      ],
+      "id": "8d9fc865-9c34-430d-8b2b-ada15b8119b9",
+      "name": "Wait2",
+      "webhookId": "832bac5d-8113-425d-a0fb-324bf6cda844"
+    },
+    {
+      "parameters": {
+        "authentication": "privateKey",
+        "command": "=cat /etc/wireguard/public.key"
+      },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        464,
+        -80
+      ],
+      "id": "1b83e9c8-133a-49c8-8f4f-91b8390975a9",
+      "name": "setup_wg1",
+      "credentials": {
+        "sshPrivateKey": {
+          "id": "cDHpF7oHDPtwlOkK",
+          "name": "client_ssh"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "privateKey",
+        "command": "=/usr/local/sbin/register-client-lxc \\\n  \"{{ $('Code in JavaScript').item.json.wgIp }}\" \\\n  \"{{ $json.stdout.trim() }}\" \\\n  \"{{ $('Code in JavaScript').item.json.publicPort }}\" \\\n  \"{{ $('Code in JavaScript').item.json.internalPort }}\""
+      },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        688,
+        -80
+      ],
+      "id": "cd86d867-d6ac-4730-bf0d-bc26d3e40eb7",
+      "name": "configure_vps",
+      "credentials": {
+        "sshPrivateKey": {
+          "id": "1KE4KRLxdkZ3S0AE",
+          "name": "vps_cloud"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "webhook",
+        "content": "=<h2>Your Database Sandbox is Live</h2>\n<p>Connect directly from your code or database client—no VPN required:</p>\n<ul>\n  <li><strong>Engine:</strong> {{ $('Code in JavaScript').item.json.engine }}</li>\n  <li><strong>Host / IP:</strong> 89.144.8.129</li>\n  <li><strong>Dedicated Port:</strong> {{ $('Code in JavaScript').item.json.publicPort }} </li>\n  <li><strong>Database Name:</strong> {{ $('Code in JavaScript').item.json.dbName }} </li>\n  <li><strong>Username:</strong> {{ $('Code in JavaScript').item.json.dbUser }} </li>\n  <li><strong>Password:</strong> {{ $('Code in JavaScript').item.json.dbPass }} </li>\n</ul>\n<p><strong>Connection URI:</strong><br/>\n<code>{{ $('Code in JavaScript').item.json.engine }}://{{ $('Code in JavaScript').item.json.dbUser }}:{{ $('Code in JavaScript').item.json.dbPass }}@89.144.8.129:{{ $('Code in JavaScript').item.json.publicPort }}/{{ $('Code in JavaScript').item.json.dbName }}</code></p>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [
+        912,
+        -80
+      ],
+      "id": "9fe80bd2-f6d6-4fac-b005-bcf87568fa15",
+      "name": "Discord",
+      "webhookId": "56945d7f-9e41-48d8-85f5-b16aa9cb9b96",
+      "credentials": {
+        "discordWebhookApi": {
+          "id": "Q5TLChUJCZs1uaTj",
+          "name": "Discord Webhook account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "On form submission": {
+      "main": [
+        []
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "cloneing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Configured": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "start_lxc",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "cloneing": {
+      "main": [
+        [
+          {
+            "node": "Wait1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "start_lxc": {
+      "main": [
+        [
+          {
+            "node": "Wait2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait1": {
+      "main": [
+        [
+          {
+            "node": "Configured",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait2": {
+      "main": [
+        [
+          {
+            "node": "setup_wg",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "setup_wg": {
+      "main": [
+        [
+          {
+            "node": "setup_wg1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "setup_wg1": {
+      "main": [
+        [
+          {
+            "node": "configure_vps",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "configure_vps": {
+      "main": [
+        [
+          {
+            "node": "Discord",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "84eba7c2-253d-42c4-8405-41c2b72f2d6f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e1415b202d4d9e93f24ef6fdde0bd3759e70c0f52f3dc7b31653c400af54a6d4"
+  },
+  "nodeGroups": [],
+  "id": "iRgaAoTn54PBemKz",
+  "tags": []
+}
